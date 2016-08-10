@@ -625,82 +625,85 @@ class PymataIOT:
         reply = json.dumps({"method": "sonar_data_reply", "params": data})
         asyncio.ensure_future(self.websocket.send(reply))
 
-"""
 
- usage: pymata_iot.py [-h] [-host HOSTNAME] [-port PORT] [-wait WAIT]
-                 [-comport COM] [-sleep SLEEP] [-log LOG]
+def main(ard_ip_addr, ard_ip_port, ard_handshake):
+    core = PymataCore(int(args.wait), float(args.sleep), log, comport,
+                      ard_ip_addr, ard_ip_port, ard_handshake)
 
-    optional arguments:
-      -h, --help      show this help message and exit
-      -host HOSTNAME  Server name or IP address
-      -port PORT      Server port number
-      -wait WAIT      Arduino wait time
-      -comport COM    Arduino COM port
-      -sleep SLEEP    sleep tune in ms.
-      -log LOG        True = send output to file, False = send output to console
-      -ardIPAddr ADDR Wireless module ip address (WiFly)
-      -ardPort PORT   Wireless module ip port (Wifly)
-      -handshake STR  Wireless device handshake string (WiFly)
-"""
-parser = argparse.ArgumentParser()
-parser.add_argument("-host", dest="hostname", default="localhost", help="Server name or IP address")
-parser.add_argument("-port", dest="port", default="9000", help="Server port number")
-parser.add_argument("-wait", dest="wait", default="2", help="Arduino wait time")
-parser.add_argument("-comport", dest="com", default="None", help="Arduino COM port")
-parser.add_argument("-sleep", dest="sleep", default=".001", help="sleep tune in ms.")
-parser.add_argument("-log", dest="log", default="False", help="redirect console output to log file")
-parser.add_argument("-ardIPAddr", dest="aIPaddr", default="None", help="Arduino IP Address (WiFly")
-parser.add_argument("-ardPort", dest="aIPport", default="2000", help="Arduino IP port (WiFly")
-parser.add_argument("-handshake", dest="handshake", default="*HELLO*", help="IP Device Handshake String")
+    # core = PymataCore()
+    core.start()
 
 
-args = parser.parse_args()
-
-ip_addr = args.hostname
-ip_port = args.port
-
-if args.com == 'None':
-    comport = None
-else:
-    comport = args.com
-
-if args.log == 'True':
-    log = True
-else:
-    log = False
-
-ard_ip_addr = args.aIPaddr
-ard_ip_port = args.aIPport
-ard_handshake = args.handshake
-
-core = PymataCore(int(args.wait), float(args.sleep), log, comport,
-                  ard_ip_addr, ard_ip_port, ard_handshake)
-
-# core = PymataCore()
-core.start()
+    # Signal handler to trap control C
+    # noinspection PyUnusedLocal,PyUnusedLocal
+    def _signal_handler(sig, frame):
+        if core is not None:
+            print('\nYou pressed Ctrl+C')
+            task = asyncio.ensure_future(core.shutdown())
+            asyncio.get_event_loop().run_until_complete(task)
+            sys.exit(1)
 
 
-# Signal handler to trap control C
-# noinspection PyUnusedLocal,PyUnusedLocal
-def _signal_handler(sig, frame):
-    if core is not None:
-        print('\nYou pressed Ctrl+C')
-        task = asyncio.ensure_future(core.shutdown())
-        asyncio.get_event_loop().run_until_complete(task)
-        sys.exit(1)
+    signal.signal(signal.SIGINT, _signal_handler)
+    signal.signal(signal.SIGTERM, _signal_handler)
+    server = PymataIOT(core)
+
+    try:
+        start_server = websockets.serve(server.get_message, '127.0.0.1', 9000)
+
+        asyncio.get_event_loop().run_until_complete(start_server)
+
+        asyncio.get_event_loop().run_forever()
+    except websockets.exceptions.ConnectionClosed:
+        sys.exit()
+    except RuntimeError:
+        sys.exit()
 
 
-signal.signal(signal.SIGINT, _signal_handler)
-signal.signal(signal.SIGTERM, _signal_handler)
-server = PymataIOT(core)
+if __name__ == '__main__':
+    """
 
-try:
-    start_server = websockets.serve(server.get_message, '127.0.0.1', 9000)
+     usage: pymata_iot.py [-h] [-host HOSTNAME] [-port PORT] [-wait WAIT]
+                     [-comport COM] [-sleep SLEEP] [-log LOG]
 
-    asyncio.get_event_loop().run_until_complete(start_server)
+        optional arguments:
+          -h, --help      show this help message and exit
+          -host HOSTNAME  Server name or IP address
+          -port PORT      Server port number
+          -wait WAIT      Arduino wait time
+          -comport COM    Arduino COM port
+          -sleep SLEEP    sleep tune in ms.
+          -log LOG        True = send output to file, False = send output to console
+          -ardIPAddr ADDR Wireless module ip address (WiFly)
+          -ardPort PORT   Wireless module ip port (Wifly)
+          -handshake STR  Wireless device handshake string (WiFly)
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-host", dest="hostname", default="localhost", help="Server name or IP address")
+    parser.add_argument("-port", dest="port", default="9000", help="Server port number")
+    parser.add_argument("-wait", dest="wait", default="2", help="Arduino wait time")
+    parser.add_argument("-comport", dest="com", default="None", help="Arduino COM port")
+    parser.add_argument("-sleep", dest="sleep", default=".001", help="sleep tune in ms.")
+    parser.add_argument("-log", dest="log", default="False", help="redirect console output to log file")
+    parser.add_argument("-ardIPAddr", dest="aIPaddr", default="None", help="Arduino IP Address (WiFly")
+    parser.add_argument("-ardPort", dest="aIPport", default="2000", help="Arduino IP port (WiFly")
+    parser.add_argument("-handshake", dest="handshake", default="*HELLO*", help="IP Device Handshake String")
 
-    asyncio.get_event_loop().run_forever()
-except websockets.exceptions.ConnectionClosed:
-    sys.exit()
-except RuntimeError:
-    sys.exit()
+
+    args = parser.parse_args()
+
+    ip_addr = args.hostname
+    ip_port = args.port
+
+    if args.com == 'None':
+        comport = None
+    else:
+        comport = args.com
+
+    if args.log == 'True':
+        log = True
+    else:
+        log = False
+
+    main(args.aIPaddr,args.aIPport,args.handshake)
+
