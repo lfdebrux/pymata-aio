@@ -626,13 +626,12 @@ class PymataIOT:
         asyncio.ensure_future(self.websocket.send(reply))
 
 
-def main(ard_ip_addr, ard_ip_port, ard_handshake):
-    core = PymataCore(int(args.wait), float(args.sleep), log, comport,
+def main(wait, sleep, log, comport, ard_ip_addr, ard_ip_port, ard_handshake,
+         hostname, port):
+    core = PymataCore(wait, sleep, log, comport,
                       ard_ip_addr, ard_ip_port, ard_handshake)
 
-    # core = PymataCore()
     core.start()
-
 
     # Signal handler to trap control C
     # noinspection PyUnusedLocal,PyUnusedLocal
@@ -643,13 +642,13 @@ def main(ard_ip_addr, ard_ip_port, ard_handshake):
             asyncio.get_event_loop().run_until_complete(task)
             sys.exit(1)
 
-
     signal.signal(signal.SIGINT, _signal_handler)
     signal.signal(signal.SIGTERM, _signal_handler)
+
     server = PymataIOT(core)
 
     try:
-        start_server = websockets.serve(server.get_message, '127.0.0.1', 9000)
+        start_server = websockets.serve(server.get_message, hostname, port)
 
         asyncio.get_event_loop().run_until_complete(start_server)
 
@@ -679,31 +678,27 @@ if __name__ == '__main__':
           -handshake STR  Wireless device handshake string (WiFly)
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("-host", dest="hostname", default="localhost", help="Server name or IP address")
-    parser.add_argument("-port", dest="port", default="9000", help="Server port number")
-    parser.add_argument("-wait", dest="wait", default="2", help="Arduino wait time")
-    parser.add_argument("-comport", dest="com", default="None", help="Arduino COM port")
-    parser.add_argument("-sleep", dest="sleep", default=".001", help="sleep tune in ms.")
-    parser.add_argument("-log", dest="log", default="False", help="redirect console output to log file")
-    parser.add_argument("-ardIPAddr", dest="aIPaddr", default="None", help="Arduino IP Address (WiFly")
-    parser.add_argument("-ardPort", dest="aIPport", default="2000", help="Arduino IP port (WiFly")
-    parser.add_argument("-handshake", dest="handshake", default="*HELLO*", help="IP Device Handshake String")
-
+    parser.add_argument("-host", dest="hostname", default="localhost",
+                        help="Server name or IP address")
+    parser.add_argument("-port", dest="port", default=9000, type=int,
+                        help="Server port number")
+    parser.add_argument("-wait", dest="wait", default=2, type=int,
+                        help="Arduino wait time")
+    parser.add_argument("-comport", dest="com", default=None,
+                        help="Arduino COM port")
+    parser.add_argument("-sleep", dest="sleep", default=.001, type=float,
+                        help="sleep tune in ms.")
+    parser.add_argument("-log", dest="log", default=False, type=bool,
+                        help="redirect console output to log file")
+    parser.add_argument("-ardIPAddr", dest="aIPaddr", default=None,
+                        help="Arduino IP Address (WiFly")
+    parser.add_argument("-ardPort", dest="aIPport", default=2000,
+                        help="Arduino IP port (WiFly")
+    parser.add_argument("-handshake", dest="handshake", default="*HELLO*",
+                        help="IP Device Handshake String")
 
     args = parser.parse_args()
 
-    ip_addr = args.hostname
-    ip_port = args.port
-
-    if args.com == 'None':
-        comport = None
-    else:
-        comport = args.com
-
-    if args.log == 'True':
-        log = True
-    else:
-        log = False
-
-    main(args.aIPaddr,args.aIPport,args.handshake)
-
+    main(wait=args.wait, sleep=args.sleep, log=args.log, comport=args.com,
+         ard_ip_addr=args.aIPaddr, ard_ip_port=args.aIPport, ard_handshake=args.handshake,
+         hostname=args.hostname, port=args.port)
